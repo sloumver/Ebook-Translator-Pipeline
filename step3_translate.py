@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Step 3: Translate Markdown Files
-Translates individual markdown pages using Claude API or manual translation.
+使用SiliconFlow API翻译markdown文件
 """
 
 import os
@@ -9,79 +9,46 @@ import argparse
 from pathlib import Path
 import glob
 from typing import Optional
+import sys
 
-# Try to import optional dependencies
-try:
-    import anthropic
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    ANTHROPIC_AVAILABLE = False
+# 添加项目根目录到Python路径
+sys.path.insert(0, str(Path(__file__).parent))
+
+from siliconflow_translator import SiliconFlowTranslator
 
 
 def load_config(temp_dir):
-    """Load configuration from config.txt file."""
+    """从config.txt文件加载配置"""
     config_file = Path(temp_dir) / "config.txt"
     config = {}
     
     with open(config_file, 'r') as f:
         for line in f:
-            key, value = line.strip().split('=', 1)
-            config[key] = value
+            if '=' in line:
+                key, value = line.strip().split('=', 1)
+                config[key] = value
     
     return config
 
 
-def translate_with_claude(content: str, target_lang: str, api_key: Optional[str] = None) -> str:
-    """Translate content using Claude API."""
-    if not ANTHROPIC_AVAILABLE:
-        raise ValueError("anthropic library not installed. Install with: pip install anthropic")
-    
-    if not api_key:
-        # Try to get from environment
-        api_key = os.environ.get('ANTHROPIC_API_KEY')
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
-    
-    client = anthropic.Anthropic(api_key=api_key)
-    
-    prompt = f"""Please translate the following markdown content to {target_lang}. 
-Preserve all markdown formatting, including headers, links, and image references.
-Only translate the text content, keep all markdown syntax unchanged.
-
-Content to translate:
-{content}
-
-Translated content:"""
-    
-    message = client.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=4000,
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
-    )
-    
-    return message.content[0].text
-
-
 def manual_translation_prompt(md_file, target_lang):
-    """Generate manual translation prompt for user."""
+    """生成手动翻译提示"""
     print(f"\n{'='*60}")
-    print(f"MANUAL TRANSLATION REQUIRED")
+    print(f"手动翻译模式")
     print(f"{'='*60}")
-    print(f"File: {md_file}")
-    print(f"Target Language: {target_lang}")
+    print(f"文件: {md_file}")
+    print(f"目标语言: {target_lang}")
     print(f"{'='*60}")
     
     with open(md_file, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    print("Original content:")
+    print("原文内容:")
     print(content)
     print(f"{'='*60}")
-    print(f"Please translate the above content to {target_lang}")
-    print("Preserve all markdown formatting.")
-    print("Enter the translated content (press Ctrl+D when finished):")
+    print(f"请将上述内容翻译为{target_lang}")
+    print("保持所有markdown格式不变")
+    print("输入翻译内容 (完成后按Ctrl+D):")
     
     translated_lines = []
     try:
@@ -95,79 +62,91 @@ def manual_translation_prompt(md_file, target_lang):
 
 
 def translate_markdown_files(temp_dir, use_api=False, api_key=None):
-    """Translate all markdown files in the pages directory."""
+    """翻译所有markdown文件"""
     config = load_config(temp_dir)
     target_lang = config['OUTPUT_LANG']
     
     pages_dir = Path(temp_dir) / "pages"
     output_dir = Path(temp_dir) / "output"
     
-    # Get all page markdown files
+    # 获取所有页面markdown文件
     md_files = sorted(glob.glob(str(pages_dir / "page*.md")))
     
     if not md_files:
-        print("No markdown files found to translate.")
+        print("未找到需要翻译的markdown文件")
         return False
     
-    print(f"Found {len(md_files)} files to translate to {target_lang}")
+    print(f"找到 {len(md_files)} 个文件需要翻译为 {target_lang}")
+    
+    # 初始化翻译器（如果使用API）
+    translator = None
+    if use_api:
+        try:
+            translator = SiliconFlowTranslator(api_key)
+            print("SiliconFlow API翻译器初始化成功")
+        except Exception as e:
+            print(f"SiliconFlow API初始化失败: {e}")
+            print("切换到手动翻译模式")
+            use_api = False
     
     for md_file in md_files:
         md_path = Path(md_file)
         output_filename = f"output_{md_path.name}"
         output_path = output_dir / output_filename
         
-        # Skip if already translated
+        # 跳过已翻译的文件
         if output_path.exists():
-            print(f"Skipping {md_path.name} - already translated")
+            print(f"跳过 {md_path.name} - 已翻译")
             continue
         
-        print(f"Translating {md_path.name}...")
+        print(f"正在翻译 {md_path.name}...")
         
-        # Read original content
+        # 读取原文内容
         with open(md_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
         try:
-            if use_api:
-                # Use Claude API
-                translated_content = translate_with_claude(content, target_lang, api_key)
+            if use_api and translator:
+                # 使用SiliconFlow API翻译
+                print("使用SiliconFlow API翻译中...")
+                translated_content = translator.translate_markdown(content, target_lang)
             else:
-                # Manual translation
+                # 手动翻译
                 translated_content = manual_translation_prompt(md_file, target_lang)
             
-            # Save translated content
+            # 保存翻译内容
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(translated_content)
             
-            print(f"Translated: {output_filename}")
+            print(f"翻译完成: {output_filename}")
             
         except Exception as e:
-            print(f"Error translating {md_path.name}: {e}")
+            print(f"翻译 {md_path.name} 时出错: {e}")
             continue
     
-    print("Translation completed!")
+    print("翻译完成!")
     return True
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Translate markdown pages")
-    parser.add_argument("temp_dir", help="Temporary directory path")
-    parser.add_argument("--api", action="store_true", help="Use Claude API for translation")
-    parser.add_argument("--api-key", help="Claude API key (or set ANTHROPIC_API_KEY env var)")
+    parser = argparse.ArgumentParser(description="翻译markdown页面")
+    parser.add_argument("temp_dir", help="临时目录路径")
+    parser.add_argument("--api", action="store_true", help="使用SiliconFlow API翻译")
+    parser.add_argument("--api-key", help="SiliconFlow API密钥 (或设置SILICONFLOW_API_KEY环境变量)")
     
     args = parser.parse_args()
     
-    # Validate temp directory
+    # 验证临时目录
     temp_path = Path(args.temp_dir)
     if not temp_path.exists():
-        print(f"Error: Temporary directory {args.temp_dir} does not exist.")
+        print(f"错误: 临时目录 {args.temp_dir} 不存在")
         return 1
     
-    # Perform translation
+    # 执行翻译
     if not translate_markdown_files(args.temp_dir, args.api, args.api_key):
         return 1
     
-    print("Step 3 completed successfully!")
+    print("步骤3完成!")
     return 0
 
 

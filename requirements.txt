@@ -1,20 +1,22 @@
 # Required packages for Ebook Translator Pipeline
 
 # Core dependencies
-PyMuPDF>=1.23.0          # PDF processing
-pdf2image>=3.1.0         # PDF to image conversion
-pypandoc>=1.11           # Pandoc wrapper for document conversion
-beautifulsoup4>=4.12.0   # HTML/XML parsing
-anthropic>=0.18.0        # Claude API client
+requests>=2.31.0        # HTTP requests for SiliconFlow API
 
-# System dependencies
-Pillow>=10.0.0          # Image processing
-requests>=2.31.0        # HTTP requests
+# PDF processing (optional)
+PyMuPDF>=1.23.0          # PDF processing (optional)
+pdf2image>=3.1.0         # PDF to image conversion (optional)
+
+# Document conversion (optional)  
+pypandoc>=1.11           # Pandoc wrapper for document conversion (optional)
+
+# HTML parsing (optional)
+beautifulsoup4>=4.12.0   # HTML/XML parsing (optional)
+lxml>=4.9.0             # Fast XML/HTML parser for BeautifulSoup (optional)
+
+# System utilities
+Pillow>=10.0.0          # Image processing (optional)
 pathlib                 # Path handling (built-in Python 3.4+)
-
-# Optional but recommended
-lxml>=4.9.0             # Fast XML/HTML parser for BeautifulSoup
-poppler-utils           # PDF utilities (system package, not pip)
 
 # Development and testing
 pytest>=7.4.0          # Testing framework

@@ -34,8 +34,8 @@ def main():
     parser.add_argument("-i", "--input", required=True, help="Input ebook file path")
     parser.add_argument("-l", "--lang", help="Input text language (auto-detect if not specified)")
     parser.add_argument("--olang", default="zh", help="Output language (default: zh)")
-    parser.add_argument("--api", action="store_true", help="Use Claude API for translation")
-    parser.add_argument("--api-key", help="Claude API key (or set ANTHROPIC_API_KEY env var)")
+    parser.add_argument("--api", action="store_true", help="使用SiliconFlow API翻译")
+    parser.add_argument("--api-key", help="SiliconFlow API密钥 (或设置SILICONFLOW_API_KEY环境变量)")
     parser.add_argument("--start-step", type=int, default=1, choices=range(1, 7), 
                        help="Start from specific step (1-6)")
     
