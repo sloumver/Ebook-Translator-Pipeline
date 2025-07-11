@@ -50,8 +50,13 @@ def main():
     # Determine temp directory
     temp_dir = input_path.parent / f"{input_path.stem}_temp"
     
+    # Build step1 arguments
+    step1_args = ["-i", args.input, "--olang", args.olang]
+    if args.lang:
+        step1_args.extend(["-l", args.lang])
+    
     steps = [
-        ("step1_init.py", ["-i", args.input, "-l", args.lang or "", "--olang", args.olang], 
+        ("step1_init.py", step1_args, 
          "Step 1: Environment Initialization"),
         ("step2_split_pdf.py", [str(temp_dir)], 
          "Step 2: Split/Convert Ebook"),

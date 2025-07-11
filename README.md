@@ -26,20 +26,24 @@ pip install -r requirements.txt
 ### 完整流程
 
 ```bash
-python main.py -i inputbook.pdf --olang zh
+# 创建示例 PDF（可选）
+python3 create_sample.py
+
+# 运行翻译流程
+python3 main.py -i sample_ebook.pdf --olang zh
 ```
 
 ### 使用 Claude API 翻译
 
 ```bash
 export ANTHROPIC_API_KEY="your-api-key"
-python main.py -i inputbook.pdf --api --olang zh
+python3 main.py -i sample_ebook.pdf --api --olang zh
 ```
 
 ### 从指定步骤开始
 
 ```bash
-python main.py -i inputbook.pdf --start-step 3
+python3 main.py -i sample_ebook.pdf --start-step 3
 ```
 
 ### 命令行参数

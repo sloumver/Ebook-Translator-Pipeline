@@ -6,8 +6,14 @@ Generates and inserts TOC at the beginning of the HTML file.
 
 import argparse
 from pathlib import Path
-from bs4 import BeautifulSoup
 import re
+
+# Try to import optional dependencies
+try:
+    from bs4 import BeautifulSoup
+    BS4_AVAILABLE = True
+except ImportError:
+    BS4_AVAILABLE = False
 
 
 def load_config(temp_dir):
@@ -21,6 +27,110 @@ def load_config(temp_dir):
             config[key] = value
     
     return config
+
+
+def generate_toc_simple(html_content):
+    """Generate TOC using simple regex parsing (fallback when BeautifulSoup not available)."""
+    import re
+    
+    # Find all heading tags
+    heading_pattern = r'<(h[1-6])[^>]*id="([^"]*)"[^>]*>([^<]+)</h[1-6]>'
+    headings = re.findall(heading_pattern, html_content, re.IGNORECASE)
+    
+    if not headings:
+        # Try to find headings without id and add them
+        heading_pattern_no_id = r'<(h[1-6])[^>]*>([^<]+)</h[1-6]>'
+        headings_no_id = re.findall(heading_pattern_no_id, html_content, re.IGNORECASE)
+        
+        if not headings_no_id:
+            print("No headings found in HTML file.")
+            return html_content
+        
+        # Add IDs to headings without them
+        for i, (tag, text) in enumerate(headings_no_id):
+            heading_id = f"heading-{i+1}-{re.sub(r'[^w]', '-', text.lower())}"
+            old_heading = f'<{tag}>{text}</{tag}>'
+            new_heading = f'<{tag} id="{heading_id}">{text}</{tag}>'
+            html_content = html_content.replace(old_heading, new_heading, 1)
+            headings.append((tag, heading_id, text))
+    
+    if not headings:
+        return html_content
+    
+    print(f"Found {len(headings)} headings for TOC")
+    
+    # Generate TOC HTML
+    toc_html = '''
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<ul>
+'''
+    
+    for tag, anchor_id, text in headings:
+        level = int(tag[1])  # h1 -> 1, h2 -> 2, etc.
+        indent = '  ' * (level - 1)
+        toc_html += f'{indent}<li><a href="#{anchor_id}">{text}</a></li>\n'
+    
+    toc_html += '''</ul>
+</div>
+
+'''
+    
+    # Add TOC styles
+    toc_styles = '''
+<style>
+#table-of-contents {
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+#table-of-contents h2 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #007acc;
+    padding-bottom: 5px;
+}
+
+#table-of-contents ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+#table-of-contents li {
+    margin: 5px 0;
+    padding-left: 20px;
+}
+
+#table-of-contents a {
+    text-decoration: none;
+    color: #007acc;
+}
+
+#table-of-contents a:hover {
+    text-decoration: underline;
+    color: #005fa3;
+}
+</style>
+'''
+    
+    # Insert styles in head
+    if '<head>' in html_content:
+        html_content = html_content.replace('<head>', f'<head>\n{toc_styles}', 1)
+    else:
+        # Add styles at the beginning
+        html_content = toc_styles + html_content
+    
+    # Insert TOC after opening body tag
+    if '<body>' in html_content:
+        html_content = html_content.replace('<body>', f'<body>\n{toc_html}', 1)
+    else:
+        # Add TOC at the beginning
+        html_content = toc_html + html_content
+    
+    return html_content
 
 
 def generate_toc_from_headings(soup):
@@ -116,42 +226,54 @@ def generate_toc(temp_dir):
     with open(html_file, 'r', encoding='utf-8') as f:
         html_content = f.read()
     
-    # Parse with BeautifulSoup
-    soup = BeautifulSoup(html_content, 'html.parser')
-    
-    # Generate TOC
-    toc_html = generate_toc_from_headings(soup)
-    
-    if not toc_html:
-        print("No TOC generated - no headings found.")
-        return True
-    
-    # Add TOC styles to head
-    head = soup.find('head')
-    if head:
-        style_tag = BeautifulSoup(add_toc_styles(), 'html.parser')
-        head.append(style_tag)
-    
-    # Find body and insert TOC at the beginning
-    body = soup.find('body')
-    if body:
-        # Create TOC element
-        toc_soup = BeautifulSoup(toc_html, 'html.parser')
+    if BS4_AVAILABLE:
+        # Use BeautifulSoup if available
+        soup = BeautifulSoup(html_content, 'html.parser')
         
-        # Insert TOC as first element in body
-        if body.contents:
-            body.insert(0, toc_soup)
+        # Generate TOC
+        toc_html = generate_toc_from_headings(soup)
+        
+        if not toc_html:
+            print("No TOC generated - no headings found.")
+            return True
+        
+        # Add TOC styles to head
+        head = soup.find('head')
+        if head:
+            style_tag = BeautifulSoup(add_toc_styles(), 'html.parser')
+            head.append(style_tag)
+        
+        # Find body and insert TOC at the beginning
+        body = soup.find('body')
+        if body:
+            # Create TOC element
+            toc_soup = BeautifulSoup(toc_html, 'html.parser')
+            
+            # Insert TOC as first element in body
+            if body.contents:
+                body.insert(0, toc_soup)
+            else:
+                body.append(toc_soup)
         else:
-            body.append(toc_soup)
+            print("Warning: No body tag found, appending TOC to end of HTML")
+            soup.append(BeautifulSoup(toc_html, 'html.parser'))
+        
+        # Write updated HTML
+        with open(html_file, 'w', encoding='utf-8') as f:
+            f.write(str(soup))
+        
+        print(f"TOC generated and inserted into {html_file}")
     else:
-        print("Warning: No body tag found, appending TOC to end of HTML")
-        soup.append(BeautifulSoup(toc_html, 'html.parser'))
+        # Use simple regex-based approach
+        print("BeautifulSoup not available, using simple TOC generation...")
+        updated_html = generate_toc_simple(html_content)
+        
+        # Write updated HTML
+        with open(html_file, 'w', encoding='utf-8') as f:
+            f.write(updated_html)
+        
+        print(f"TOC generated and inserted into {html_file}")
     
-    # Write updated HTML
-    with open(html_file, 'w', encoding='utf-8') as f:
-        f.write(str(soup))
-    
-    print(f"TOC generated and inserted into {html_file}")
     return True
 
 

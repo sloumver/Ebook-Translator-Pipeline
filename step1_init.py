@@ -10,19 +10,28 @@ import shutil
 from pathlib import Path
 
 
-def create_temp_directory(input_file_path):
+def create_temp_directory(input_file_path, auto_overwrite=False):
     """Create temporary directory based on input file name."""
     input_file = Path(input_file_path)
     temp_dir = input_file.parent / f"{input_file.stem}_temp"
     
     if temp_dir.exists():
         print(f"Warning: Temporary directory {temp_dir} already exists.")
-        response = input("Do you want to remove it and create a new one? (y/n): ")
-        if response.lower() == 'y':
+        if auto_overwrite:
+            print("Auto-removing existing directory...")
             shutil.rmtree(temp_dir)
         else:
-            print("Using existing directory.")
-            return temp_dir
+            try:
+                response = input("Do you want to remove it and create a new one? (y/n): ")
+                if response.lower() == 'y':
+                    shutil.rmtree(temp_dir)
+                else:
+                    print("Using existing directory.")
+                    return temp_dir
+            except EOFError:
+                # Non-interactive mode, use existing directory
+                print("Non-interactive mode: using existing directory.")
+                return temp_dir
     
     temp_dir.mkdir(parents=True, exist_ok=True)
     print(f"Created temporary directory: {temp_dir}")

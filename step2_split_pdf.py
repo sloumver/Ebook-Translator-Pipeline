@@ -8,9 +8,25 @@ import os
 import argparse
 from pathlib import Path
 import subprocess
-import fitz  # PyMuPDF
-from pdf2image import convert_from_path
-import pypandoc
+
+# Try to import optional dependencies
+try:
+    import fitz  # PyMuPDF
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PYMUPDF_AVAILABLE = False
+
+try:
+    from pdf2image import convert_from_path
+    PDF2IMAGE_AVAILABLE = True
+except ImportError:
+    PDF2IMAGE_AVAILABLE = False
+
+try:
+    import pypandoc
+    PYPANDOC_AVAILABLE = True
+except ImportError:
+    PYPANDOC_AVAILABLE = False
 
 
 def load_config(temp_dir):
@@ -28,6 +44,10 @@ def load_config(temp_dir):
 
 def split_pdf(input_file, temp_dir):
     """Split PDF into individual markdown pages."""
+    if not PYMUPDF_AVAILABLE:
+        print("Error: PyMuPDF (fitz) not installed. Install with: pip install PyMuPDF")
+        return False
+    
     pdf_document = fitz.open(input_file)
     pages_dir = Path(temp_dir) / "pages"
     images_dir = Path(temp_dir) / "images"
@@ -76,10 +96,55 @@ def split_pdf(input_file, temp_dir):
     
     pdf_document.close()
     print(f"PDF splitting completed. Created {total_pages} markdown files.")
+    return True
+
+
+def handle_markdown_file(input_file, temp_dir):
+    """Handle markdown files directly by splitting on headers."""
+    pages_dir = Path(temp_dir) / "pages"
+    input_path = Path(input_file)
+    
+    try:
+        # Read the markdown file
+        with open(input_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Split by main headers (# )
+        sections = content.split('\n# ')
+        
+        for i, section_content in enumerate(sections):
+            if i == 0:
+                # First section doesn't need '# ' prefix added back
+                md_content = section_content
+            else:
+                md_content = '# ' + section_content
+            
+            # Skip empty sections
+            if not md_content.strip():
+                continue
+            
+            md_filename = f"page{i+1:04d}.md"
+            md_path = pages_dir / md_filename
+            
+            with open(md_path, 'w', encoding='utf-8') as f:
+                f.write(md_content)
+            
+            print(f"Created: {md_filename}")
+        
+        print(f"Markdown splitting completed. Created {len([s for s in sections if s.strip()])} pages.")
+        return True
+        
+    except Exception as e:
+        print(f"Error processing markdown file: {e}")
+        return False
 
 
 def convert_docx_epub(input_file, temp_dir):
     """Convert DOCX/EPUB to markdown using pandoc."""
+    if not PYPANDOC_AVAILABLE:
+        print("Error: pypandoc not installed. Install with: pip install pypandoc")
+        return False
+    
     pages_dir = Path(temp_dir) / "pages"
     input_path = Path(input_file)
     
@@ -143,9 +208,14 @@ def main():
     file_ext = input_path.suffix.lower()
     
     if file_ext == '.pdf':
-        split_pdf(input_file, args.temp_dir)
+        if not split_pdf(input_file, args.temp_dir):
+            return 1
     elif file_ext in ['.docx', '.epub']:
         if not convert_docx_epub(input_file, args.temp_dir):
+            return 1
+    elif file_ext == '.md':
+        # Handle markdown files directly
+        if not handle_markdown_file(input_file, args.temp_dir):
             return 1
     else:
         print(f"Error: Unsupported file format {file_ext}")

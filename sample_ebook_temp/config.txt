@@ -1,0 +1,4 @@
+INPUT_FILE=sample_ebook.md
+INPUT_LANG=auto
+OUTPUT_LANG=zh
+TEMP_DIR=sample_ebook_temp

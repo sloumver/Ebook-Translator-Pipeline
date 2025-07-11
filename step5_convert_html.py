@@ -81,12 +81,16 @@ def convert_to_html(temp_dir):
         "-o", str(html_file),
         "--standalone",
         "--self-contained",
-        "--css", "style.css" if Path("style.css").exists() else "",
         "--metadata", "title=Translated Ebook"
-    ] + template_args
+    ]
     
-    # Remove empty CSS argument if no style.css
-    pandoc_cmd = [arg for arg in pandoc_cmd if arg]
+    # Add template if available
+    if template_args:
+        pandoc_cmd.extend(template_args)
+    
+    # Add CSS if available
+    if Path("style.css").exists():
+        pandoc_cmd.extend(["--css", "style.css"])
     
     try:
         print(f"Converting {md_file} to HTML...")

@@ -8,8 +8,14 @@ import os
 import argparse
 from pathlib import Path
 import glob
-import anthropic
 from typing import Optional
+
+# Try to import optional dependencies
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
 
 
 def load_config(temp_dir):
@@ -27,6 +33,9 @@ def load_config(temp_dir):
 
 def translate_with_claude(content: str, target_lang: str, api_key: Optional[str] = None) -> str:
     """Translate content using Claude API."""
+    if not ANTHROPIC_AVAILABLE:
+        raise ValueError("anthropic library not installed. Install with: pip install anthropic")
+    
     if not api_key:
         # Try to get from environment
         api_key = os.environ.get('ANTHROPIC_API_KEY')
